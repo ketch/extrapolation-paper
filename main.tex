@@ -8,7 +8,7 @@
 \usepackage{algpseudocode}
 \usepackage{algorithm}
 
-\newcommand{\parex}{\texttt ParEx}
+\newcommand{\parex}{\texttt ParEx }
 \newcommand\norm[1]{\left\lVert#1\right\rVert}
 \newcommand{\Real}{\mathbb{R}}
 \newcommand{\spar}{s_\textup{seq}}
@@ -348,19 +348,34 @@ on the interpolation error is performed before a step is accepted.
 
 
 \subsection{Numerical results}
-In this section we compare our code to $DOPRI5$ and $DOP853$ integrators from $scipy.integrate.ode$. We ran the comparison test on three problems: N-body problem, Burgers' equation, and Korteweg-de Vries (KdV) equation. 
+In this section we compare our code to $DOPRI5$ and $DOP853$ integrators from
+$scipy.integrate.ode$. We ran the comparison test on three problems: N-body
+problem, Burgers' equation, and Korteweg-de Vries (KdV) equation. 
 
-For each problem, we compared the relative global error in the final solution vs. wall clock time. We measure the relative error using the following: $$\frac{\norm{y - y_{ref}}}{\norm{y_{ref}}},$$ where $y$ and $y_{ref}$ are obtained solution and the reference solution, respectively. The reference solutions used for each problem were computed at tight tolerances. The reference solution for the N-body problem is the same reference solution for ODEX-P in [reference to David's camcos paper. The reference solution for KDV equation and Burgers' equation were computed using \parex with the midpoint method base solver and at tolerances of $1^{-15}$ and  $1^{-10}$, respectively.
+For each problem, we compared the relative global error in the final solution
+vs. wall clock time. We measure the relative error using the following:
+$$\frac{\norm{y - y_{ref}}}{\norm{y_{ref}}},$$ where $y$ and $y_{ref}$ are
+obtained solution and the reference solution, respectively. 
+The reference solution for the N-body problem is the same reference solution for
+ODEX-P in \cite{2014_hork}. The reference solution for the KDV
+equation and Burgers' equation were computed using \parex with the midpoint
+method base solver and at tolerances of $1^{-15}$ and  $1^{-10}$, respectively.
 
 The tests were run on a workstation with two 2.66 GHz quad-core Intel Xeon processors. We used the midpoint method as the base solver for \parex with the harmonic step number sequence. We used the midpoint extrapolation for testing as it requires about half as many stages per step to obtain an order p, compared to Euler extrapolation: $$ s = \frac{p^2 + 4}{4}.$$ 
 \todo{We should also compare accuracy of dense output.}
 
-\subsubsection{N-body problem}
-The N-body problem considers N point masses in an inertial frame of reference and moving under mutual gravitational attraction, which is governed by Newton's law of gravity:
-$$F_{ij} = G\frac{m_i m_j}{r_{ij}^2},$$
-where $G$ is the gravitational constant ($6.674 \times 10^{-11} N \cdot (m/kg)^2$), $m_i$ and $m_j$ are the masses of the $i^{th}$ and $j^{th}$ point masses, and $r_{ij}$ is the distance between the centers of the $i^{th}$ and $j^{th}$ masses.
+Code for all tests is available from the repository...
 
-We tested with $N = 400$. The initial time was 0, and the final time was set to $T = 0.008$.
+\subsubsection{N-body problem}
+We first consider a gravitational N-body problem with 400
+point masses in an inertial frame of reference, moving under mutual
+gravitational attraction%, which is governed by Newton's law of gravity:
+%$$F_{ij} = G\frac{m_i m_j}{r_{ij}^2},$$
+%where $G$ is the gravitational constant ($6.674 \times 10^{-11} N \cdot
+%(m/kg)^2$), $m_i$ and $m_j$ are the masses of the $i^{th}$ and $j^{th}$ point
+%masses, and $r_{ij}$ is the distance between the centers of the $i^{th}$ and
+%$j^{th}$ masses.
+%We tested with $N = 400$. The initial time was 0, and the final time was set to $T = 0.008$.
 \begin{figure}[h]
  \includegraphics[width=4in]{images/nbod_problem_err_vs_time.png}
 \centering
@@ -380,10 +395,20 @@ Achieved speedup &  1.00 &  1.89 &  3.30 &  3.82 \\
 \end{table}
 
 
-\subsubsection{KdV equation ($u_t+uu_x+u_{xxx}=0$)}
-We solve the equation on $x \in [-\pi,\pi]$  by Fast Fourier transform with the integrating factor $e^{-ik^3t}$ [add reference to Trefethen's "Spectral Methods in MATLAB" book, pages 111-112]
-
-We tested with a a grid size of $N=256$. The initial time and value were $t_0=0$ and $u(0) = 3*25^2/\cosh(0.5*(25*(x+2.)))^2 + 3*16^2/\cosh(0.5*(16*(x+1)))^2 $. The final time was set to $T = 0.003$.
+\subsubsection{KdV equation }
+We solve the KdV equation 
+$$
+u_t+uu_x+u_{xxx}=0
+$$
+on $x \in [-\pi,\pi]$  by a pseudospectral method, after applying an
+integrating factor to alleviate the stiffness
+(see \cite[pp. 111-112]{trefethen_spectral}).
+The initial condition consists of two solitons:
+$$
+u_0(x) = 3A^2\mathop{sech}\left(\frac{A}{2}(x+2.)\right)^2 + 3B^2\mathop{sech}\left(\frac{B}{2}(x+1)\right)^2
+$$
+with $A=25$, $B=16$, on a grid with $N=256$ points, from $t=0$ up
+to $t=0.003$.
 \begin{figure}[h]
  \includegraphics[scale=0.5]{images/kdv_problem_err_vs_time.png}
 \centering
@@ -403,10 +428,18 @@ Achieved speedup &  1.00 &  1.63 &  2.54 &  3.42 \\
 \end{table}
 
 
-\subsubsection{Burgers' equation ($u_t+uu_x=\epsilon u_{xx}$)}
-We solve the equation on $x \in [-\pi,\pi]$ by Fast Fourier transform with the integrating factor $e^{\xi^2 \epsilon t}$ [add reference to Trefethen's "Spectral Methods in MATLAB" book, pages 113, exercise 10.6]
-
-We tested with $\epsilon = 0.1$ and a grid size of $N=64$. The initial time and value were $t_0=0$ and $u(0) = \sin^2(x)$ for $x \in [-\pi,0]$ and $0$ otherwise. The final time was set to $T = 3$.
+\subsubsection{Viscous Burgers' equation}
+We solve
+$$
+u_t+uu_x=\epsilon u_{xx}
+$$
+on $x \in [-\pi,\pi]$ by a pseudospectral method after applying the
+integrating factor $e^{\xi^2 \epsilon t}$ (see \cite[p. 113, Exercise 10.6]{trefethen_spectral}).
+We take $\epsilon = 0.1$ and $N=64$ grid points, and integrate from
+$t=0$ to $t=3$ with initial data
+$$
+u_0(x) = \begin{cases} \sin^2(x) &  x \in [-\pi,0] \\ 0 & \mbox{otherwise.} \end{cases}
+$$
 \begin{figure}[h]
  \includegraphics[scale=0.5]{images/burgers_problem_err_vs_time.png}
 \centering
