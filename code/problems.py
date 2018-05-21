@@ -7,60 +7,93 @@ from collections import namedtuple
 import scipy
 import fbrusselator
 
-Problem = namedtuple("ProblemDefinition", ["name", "rhs", "jacobian", "output_times", "y0", "atol"])
+Problem = namedtuple("ProblemDefinition", ["name", "rhs", "rhs_reversed", "jacobian", "solout", "output_times", "y0", "atol","size"])
 
-def kdv_init(t0):
-    N = 256
-    k = np.array(list(range(0,int(N/2))) + [0] + list(range(-int(N/2)+1,0)))
-    E_ = np.exp(-1j * k**3 * t0)
-    x = (2*np.pi/N)*np.arange(-int(N/2),int(N/2))
-    A = 25
-    B = 16
-    u = 3*A**2/np.cosh(0.5*(A*(x+2.)))**2 + 3*B**2/np.cosh(0.5*(B*(x+1)))**2
-    U_hat = E_*np.fft.fft(u)
-    return U_hat
+def kdv_setup(N=256):
+    def kdv_init(t0):
+        k = np.array(list(range(0,int(N/2))) + [0] + list(range(-int(N/2)+1,0)))
+        E_ = np.exp(-1j * k**3 * t0)
+        x = (2*np.pi/N)*np.arange(-int(N/2),int(N/2))
+        A = 25
+        B = 16
+        u = 3*A**2/np.cosh(0.5*(A*(x+2.)))**2 + 3*B**2/np.cosh(0.5*(B*(x+1)))**2
+        U_hat = E_*np.fft.fft(u)
+        return U_hat
 
-def kdv_rhs(U_hat, t):
-    # U_hat := exp(-i*k^3*t)*u_hat
-    N = 256
-    k = np.array(list(range(0,int(N/2))) + [0] + list(range(-int(N/2)+1,0)))
-    E = np.exp(1j * k**3 * t)
-    E_ = np.exp(-1j * k**3 * t)
-    g = -0.5j * E_ * k
-    return g*np.fft.fft(np.real(np.fft.ifft(E*U_hat))**2)
+    def kdv_rhs(U_hat, t):
+        # U_hat := exp(-i*k^3*t)*u_hat
+        k = np.array(list(range(0,int(N/2))) + [0] + list(range(-int(N/2)+1,0)))
+        E = np.exp(1j * k**3 * t)
+        E_ = np.exp(-1j * k**3 * t)
+        g = -0.5j * E_ * k
+        return g*np.fft.fft(np.real(np.fft.ifft(E*U_hat))**2)
 
-def kdv_solout(U_hat):
-    t = 0.003
-    N = 256
-    k = np.array(list(range(0,int(N/2))) + [0] + list(range(-int(N/2)+1,0)))
-    E = np.exp(1j * k**3 * t)
-    return np.squeeze(np.real(np.fft.ifft(E*U_hat)))
+    def kdv_rhs_reversed(U_hat, t):
+        return kdv_rhs(t, U_hat)
 
-def burgers_init(t0):
-    epslison = 0.1
-    N = 64
-    k = np.array(list(range(0,int(N/2))) + [0] + list(range(-int(N/2)+1,0)))
-    E = np.exp(epslison * k**2 * t0)
-    x = (2*np.pi/N)*np.arange(-int(N/2),int(N/2))
-    u = np.sin(x)**2 * (x<0.)
-    # u = np.sin(x)**2
-    U_hat = E*np.fft.fft(u)
-    return U_hat
+    def kdv_solout(U_hat):
+        t = 0.003
+        N = len(U_hat)
+        k = np.array(list(range(0,int(N/2))) + [0] + list(range(-int(N/2)+1,0)))
+        E = np.exp(1j * k**3 * t)
+        return np.squeeze(np.real(np.fft.ifft(E*U_hat)))
 
-def burgers_rhs(U_hat, t):
-    # U_hat := exp(epslison*k^2*t)*u_hat
-    epslison = 0.1
-    N = 64
-    k = np.array(list(range(0,int(N/2))) + [0] + list(range(-int(N/2)+1,0)))
-    E = np.exp(epslison * k**2 * t)
-    E_ = np.exp(-epslison * k**2 * t)
-    g = -0.5j * E * k
-    return g*np.fft.fft(np.real(np.fft.ifft(E_*U_hat))**2)
+    return Problem(name="kdv"+str(N),
+                   rhs=kdv_rhs,
+                   rhs_reversed=kdv_rhs_reversed,
+                   jacobian=None,
+                   solout=kdv_solout,
+                   output_times=[0,0.003],
+                   y0=kdv_init(0),
+                   atol=None,
+                   size=None)
+
+
+def burgers_setup(N=64, epsilon=0.1):
+
+    def burgers_init(t0):
+        k = np.array(list(range(0,int(N/2))) + [0] + list(range(-int(N/2)+1,0)))
+        E = np.exp(epsilon * k**2 * t0)
+        x = (2*np.pi/N)*np.arange(-int(N/2),int(N/2))
+        u = np.sin(x)**2 * (x<0.)
+        U_hat = E*np.fft.fft(u)
+        return U_hat
+
+    def burgers_rhs(U_hat, t):
+        # U_hat := exp(epsilon*k^2*t)*u_hat
+        k = np.array(list(range(0,int(N/2))) + [0] + list(range(-int(N/2)+1,0)))
+        E = np.exp(epsilon * k**2 * t)
+        E_ = np.exp(-epsilon * k**2 * t)
+        g = -0.5j * E * k
+        return g*np.fft.fft(np.real(np.fft.ifft(E_*U_hat))**2)
+
+    def burgers_rhs_reversed(U_hat, t):
+        return burgers_rhs(t, U_hat)
+
+    def burgers_solout(U_hat):
+        t = 3.
+        k = np.array(list(range(0,int(N/2))) + [0] + list(range(-int(N/2)+1,0)))
+        E_ = np.exp(-epsilon * k**2 * t)
+        return np.squeeze(np.real(np.fft.ifft(E_*U_hat)))
+
+    return Problem(name="burgers"+str(N)+'_'+str(epsilon),
+                   rhs=burgers_rhs,
+                   rhs_reversed=burgers_rhs_reversed,
+                   jacobian=None,
+                   solout=burgers_solout,
+                   output_times=[0.,3.],
+                   y0=burgers_init(0.),
+                   atol=None,
+                   size=N)
+
 
 def vdpol_rhs(y,t):
     epsilon=1e-6
     y2=1/epsilon*(((1-y[0]**2)*y[1])-y[0])
     return np.array([y[1],y2])
+
+def vdpol_rhs_reversed(t,y):
+    return vdpol_rhs(y,t)
 
 def vdpol_jac(y,t):
     epsilon=1e-6
@@ -102,6 +135,9 @@ def FortBRUSS2Df(y,t):
     aux=fbrusselator.fnbruss(y,t,N)
     return aux
 
+def brusselator_rhs_reversed(t,y):
+    return FortBRUSS2Df(y,t)
+
 def BRUSS2Dgradnonsparse(yn,tn):
     U=yn[0:N**2]
     V=yn[N**2:2*N**2]
@@ -139,38 +175,43 @@ def brusselator_setup(N=20, alpha=0.1):
 
     return Problem(name="brusselator"+str(N),
                    rhs=FortBRUSS2Df,
+                   rhs_reversed=brusselator_rhs_reversed,
                    jacobian=BRUSS2Dgradnonsparse,  # for scipy
+                   solout=None,
                    output_times=[0,1.5,11.5],
                    y0=y0,
-                   atol=None)
+                   atol=None,
+                   size=N)
+
+def nbody_rhs(t,y):
+    return fnbod.fnbod(t,y)
+
+def nbody_rhs_reversed(t,y):
+    return fnbod.fnbod(y,t)
 
 
 brusselator = brusselator_setup()
 
+kdv = kdv_setup()
+
+burgers = burgers_setup()
+
 nbody = Problem(name="nbody",
-                rhs=fnbod.fnbod,
+                rhs=nbody_rhs,
+                rhs_reversed=nbody_rhs_reversed,
                 jacobian=None,
+                solout=None,
                 output_times=[0, 0.08],
                 y0=fnbod.init_fnbod(2400),
-                atol=None)
-
-kdv = Problem(name="kdv",
-              rhs=kdv_rhs,
-              jacobian=None,
-              output_times=[0,0.0003],
-              y0=kdv_init(0),
-              atol=None)
-
-burgers = Problem(name="burgers",
-                  rhs=burgers_rhs,
-                  jacobian=None,
-                  output_times=[0.,3.],
-                  y0=burgers_init(0.),
-                  atol=None)
+                atol=None,
+                size=None)
 
 vdpol = Problem(name="vdpol",
                 rhs=vdpol_rhs,
+                rhs_reversed=vdpol_rhs_reversed,
                 jacobian=vdpol_jac,
+                solout=None,
                 output_times=np.arange(0,13,1.),
                 y0=np.array([2.,0.]),
-                atol=None)
+                atol=None,
+                size=None)
