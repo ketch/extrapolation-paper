@@ -1,3 +1,8 @@
+"""
+Compare ParEx's semi-implicit Euler solver with Scipy's BDF2.
+More up-to-date version is in the notebook.  Copy back to here
+when it's ready.
+"""
 from scipy import integrate
 import numpy as np
 import time
@@ -14,7 +19,9 @@ for problem in [vdpol]:
         for solver in solvers:
             start = time.time()
             if solver is 'scipy':
-                y, diagnostics = integrate.odeint(problem.rhs, problem.y0, problem.output_times, Dfun=problem.jacobian, atol=tol, rtol=tol, mxstep=100000000, full_output=True)
+                y, diagnostics = integrate.odeint(problem.rhs, problem.y0, problem.output_times,
+                                                  Dfun=problem.jacobian, atol=tol, rtol=tol,
+                                                  mxstep=100000000, full_output=True)
                 fe_seq = np.sum(diagnostics["nfe"])
                 mean_order = None
             else:
@@ -37,4 +44,3 @@ for problem in [vdpol]:
             plt.show()
 
             y = y.reshape(-1)
-
